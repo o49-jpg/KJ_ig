@@ -255,60 +255,64 @@ end)
 
 -- KICK Ability
 addAbilityButton("Dropkick", function()
-    -- Find a target in front of you within range (optional)
-    local target
+    local closestPlayer = nil
+    local closestDistance = 57 -- your desired range
+
+    -- Find closest player within range
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
             local dist = (plr.Character.HumanoidRootPart.Position - HRP.Position).Magnitude
-            if dist <= 15 then -- adjust range as needed
-                target = plr.Character.HumanoidRootPart
-                break
+            if dist <= closestDistance then
+                closestDistance = dist
+                closestPlayer = plr
             end
         end
     end
 
-    -- If no target found, just use forward direction
-    local lookAtPos = target and target.Position or (HRP.Position + HRP.CFrame.LookVector * 10)
+    if not closestPlayer then return end
+    local targetHRP = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
 
-    -- Tilt the HumanoidRootPart towards that position with 60 degree pitch
-    local rootCFrame = HRP.CFrame
-    local lookVector = (lookAtPos - rootCFrame.Position).Unit
+    -- Position in front of the target
+    local targetLook = targetHRP.CFrame.LookVector
+    local teleportPos = targetHRP.Position - targetLook * 4
 
-    -- Construct CFrame looking at target but tilted 60 degrees up
-    local tiltedCFrame = CFrame.new(rootCFrame.Position) *
-        CFrame.Angles(math.rad(-60), math.atan2(lookVector.X, lookVector.Z), 0)
+    -- Tilt character 70 degrees forward (toward enemy)
+    local newCFrame = CFrame.new(teleportPos, targetHRP.Position) * CFrame.Angles(math.rad(-70), 0, 0)
+    HRP.CFrame = newCFrame
 
-    HRP.CFrame = tiltedCFrame
+    -- Create 8x8x8 visible foot hitbox
+    local hitbox = createVisibleHitbox("DropkickHitbox", Vector3.new(8, 8, 8), Color3.fromRGB(255, 100, 0))
 
-    -- Create visible hitbox
-    local hitbox = createVisibleHitbox("DropkickHitbox", Vector3.new(6, 6, 6), Color3.fromRGB(255, 100, 0))
-
+    -- Move hitbox to foot-facing direction (in front of character)
     local conn
     conn = RunService.RenderStepped:Connect(function()
         if hitbox and HRP then
-            local basePos = HRP.Position
-            -- Position the hitbox slightly in front of the feet direction
-            local feetDirection = HRP.CFrame.LookVector
-            hitbox.CFrame = CFrame.new(basePos + feetDirection * 4, basePos + feetDirection * 5)
+            local footDir = HRP.CFrame.LookVector
+            hitbox.CFrame = CFrame.new(HRP.Position + footDir * 4, HRP.Position + footDir * 5)
         else
             if conn then conn:Disconnect() end
         end
     end)
 
+    -- Hit detection
     local hitAlready = {}
     hitbox.Touched:Connect(function(part)
         local targetChar = part:FindFirstAncestorOfClass("Model")
         local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
         if targetPlayer and targetPlayer ~= LocalPlayer and not hitAlready[targetPlayer] then
             hitAlready[targetPlayer] = true
-            ReplicatedStorage:WaitForChild("GeneralHit"):FireServer(targetChar:FindFirstChild("Head"))
+            local head = targetChar:FindFirstChild("Head")
+            if head then
+                ReplicatedStorage:WaitForChild("GeneralHit"):FireServer(head)
+            end
         end
     end)
 
+    -- Cleanup after 2 seconds
     task.delay(2, function()
-        if hitbox then
-            hitbox:Destroy()
-        end
+        if conn then conn:Disconnect() end
+        if hitbox then hitbox:Destroy() end
     end)
 end)
 
