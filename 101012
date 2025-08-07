@@ -203,49 +203,105 @@ end
 
 -- PUNCH Ability
 addAbilityButton("Punch", function()
-    local camLook = workspace.CurrentCamera.CFrame.LookVector
-    local selectedAnimId
-    if camLook.Y > 0.3 then
-        selectedAnimId = "rbxassetid://116559255414365" -- Uppercut
-    elseif camLook.Y < -0.3 then
-        selectedAnimId = "rbxassetid://14772482253" -- Down Punch
-    else
-        selectedAnimId = "rbxassetid://109511274923523" -- Forward Punch
-    end
+	local hitbox = createVisibleHitbox("PunchHitbox", Vector3.new(4, 4, 4), Color3.fromRGB(255, 0, 0))
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		if hitbox and HRP then
+			hitbox.CFrame = HRP.CFrame * CFrame.new(0, 0, -4)
+		else
+			if conn then conn:Disconnect() end
+		end
+	end)
 
-    local anim = Instance.new("Animation")
-    anim.AnimationId = selectedAnimId
-    local track = Humanoid:LoadAnimation(anim)
-    track:Play()
+	local hitAlready = {}
+	hitbox.Touched:Connect(function(part)
+		local targetChar = part:FindFirstAncestorOfClass("Model")
+		local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+		if targetPlayer and targetPlayer ~= LocalPlayer and not hitAlready[targetPlayer] then
+			hitAlready[targetPlayer] = true
+			local head = targetChar:FindFirstChild("Head")
+			if head then
+				ReplicatedStorage:WaitForChild("GeneralHit"):FireServer(head)
+			end
+		end
+	end)
 
-    local hitbox = createVisibleHitbox("PunchHitbox", Vector3.new(5,5,5))
+	task.delay(2, function()
+		if conn then conn:Disconnect() end
+		if hitbox then hitbox:Destroy() end
+	end)
+end)
 
-    local conn
-    conn = RunService.RenderStepped:Connect(function()
-        if hitbox and HRP then
-            local basePos = HRP.Position
-            local lookVec = HRP.CFrame.LookVector
-            hitbox.CFrame = CFrame.new(basePos + lookVec * 4, basePos + lookVec * 5)
-        else
-            if conn then conn:Disconnect() end
-        end
-    end)
+-- DROPKICK Ability
+addAbilityButton("Dropkick", function()
+	local closestPlayer = nil
+	local closestDistance = 57
 
-    local hitAlready = {}
-    hitbox.Touched:Connect(function(part)
-        local targetChar = part:FindFirstAncestorOfClass("Model")
-        local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
-        if targetPlayer and targetPlayer ~= LocalPlayer and not hitAlready[targetPlayer] then
-            hitAlready[targetPlayer] = true
-            ReplicatedStorage:WaitForChild("GeneralHit"):FireServer(targetChar:FindFirstChild("Head"))
-        end
-    end)
+	for _, plr in pairs(Players:GetPlayers()) do
+		if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+			local dist = (plr.Character.HumanoidRootPart.Position - HRP.Position).Magnitude
+			if dist <= closestDistance then
+				closestDistance = dist
+				closestPlayer = plr
+			end
+		end
+	end
 
-    task.delay(2, function()
-        if hitbox then
-            hitbox:Destroy()
-        end
-    end)
+	if not closestPlayer then return end
+	local targetHRP = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
+	if not targetHRP then return end
+
+	local targetLook = targetHRP.CFrame.LookVector
+	local teleportPos = targetHRP.Position - targetLook * 4
+	local newCFrame = CFrame.new(teleportPos, targetHRP.Position) * CFrame.Angles(math.rad(-70), 0, 0)
+	HRP.CFrame = newCFrame
+
+	local hitbox = createVisibleHitbox("DropkickHitbox", Vector3.new(8, 8, 8), Color3.fromRGB(255, 100, 0))
+
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		if hitbox and HRP then
+			local footDir = HRP.CFrame.LookVector
+			hitbox.CFrame = CFrame.new(HRP.Position + footDir * 4, HRP.Position + footDir * 5)
+		else
+			if conn then conn:Disconnect() end
+		end
+	end)
+
+	local hitAlready = {}
+	hitbox.Touched:Connect(function(part)
+		local targetChar = part:FindFirstAncestorOfClass("Model")
+		local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+		if targetPlayer and targetPlayer ~= LocalPlayer and not hitAlready[targetPlayer] then
+			hitAlready[targetPlayer] = true
+			local head = targetChar:FindFirstChild("Head")
+			if head then
+				ReplicatedStorage:WaitForChild("GeneralHit"):FireServer(head)
+			end
+		end
+	end)
+
+	task.delay(2, function()
+		if conn then conn:Disconnect() end
+		if hitbox then hitbox:Destroy() end
+	end)
+end)
+
+-- HARD HITTER Toggle
+addAbilityToggle("Hard Hitter", false, function(state)
+	if state then
+		local bullClick = workspace:FindFirstChild("Lobby") and workspace.Lobby:FindFirstChild("Bull") and workspace.Lobby.Bull:FindFirstChild("ClickDetector")
+		if bullClick then
+			fireclickdetector(bullClick)
+		end
+
+		local bullRemote = ReplicatedStorage:FindFirstChild("BullHit")
+		if bullRemote then
+			bullRemote:FireServer()
+		end
+	else
+		print("Hard Hitter toggled off")
+	end
 end)
 
 -- AFTERIMAGE Ability (enables Afterimage toggle button)
@@ -274,87 +330,6 @@ local function createVisibleHitbox(name, size, color)
     part.Parent = workspace
     return part
 end
-
--- KICK Ability
-addAbilityButton("Dropkick", function()
-    local closestPlayer = nil
-    local closestDistance = 57
-
-    -- Find closest player
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (plr.Character.HumanoidRootPart.Position - HRP.Position).Magnitude
-            if dist <= closestDistance then
-                closestDistance = dist
-                closestPlayer = plr
-            end
-        end
-    end
-
-    if not closestPlayer then return end
-
-    local targetHRP = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not targetHRP then return end
-
-    -- Position in front of target
-    local targetLook = targetHRP.CFrame.LookVector
-    local teleportPos = targetHRP.Position - targetLook * 4
-    local newCFrame = CFrame.new(teleportPos, targetHRP.Position) * CFrame.Angles(math.rad(-70), 0, 0)
-    HRP.CFrame = newCFrame
-
-    -- Create hitbox
-    local hitbox = createVisibleHitbox("DropkickHitbox", Vector3.new(8, 8, 8), Color3.fromRGB(255, 100, 0))
-
-    -- Reposition hitbox to be in front of the character's foot
-    local conn
-    conn = RunService.RenderStepped:Connect(function()
-        if hitbox and HRP then
-            local footDir = HRP.CFrame.LookVector
-            hitbox.CFrame = CFrame.new(HRP.Position + footDir * 4, HRP.Position + footDir * 5)
-        else
-            if conn then conn:Disconnect() end
-        end
-    end)
-
-    -- Hit detection
-    local hitAlready = {}
-    hitbox.Touched:Connect(function(part)
-        local targetChar = part:FindFirstAncestorOfClass("Model")
-        local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
-        if targetPlayer and targetPlayer ~= LocalPlayer and not hitAlready[targetPlayer] then
-            hitAlready[targetPlayer] = true
-            local head = targetChar:FindFirstChild("Head")
-            if head then
-                ReplicatedStorage:WaitForChild("GeneralHit"):FireServer(head)
-            end
-        end
-    end)
-
-    -- Cleanup after 2 seconds
-    task.delay(2, function()
-        if conn then conn:Disconnect() end
-        if hitbox then hitbox:Destroy() end
-    end)
-end)
-
--- HARD HITTER TOGGLE
-addAbilityToggle("Hard Hitter", false, function(state)
-    if state then
-        -- Click the bull
-        local bullClick = workspace:FindFirstChild("Lobby") and workspace.Lobby:FindFirstChild("Bull") and workspace.Lobby.Bull:FindFirstChild("ClickDetector")
-        if bullClick then
-            fireclickdetector(bullClick)
-        end
-
-        -- Fire the bull hit remote
-        local bullRemote = ReplicatedStorage:FindFirstChild("BullHit")
-        if bullRemote then
-            bullRemote:FireServer()
-        end
-    else
-        print("Hard Hitter toggled off")
-    end
-end)
 
 -- WALK SPEED DETECTOR & DISPLAY (top center)
 local walkSpeedLabel = Instance.new("TextLabel")
