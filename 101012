@@ -10,6 +10,19 @@ local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
 local HRP = Character:WaitForChild("HumanoidRootPart")
 
+local function createVisibleHitbox(name, size, color)
+    local hitbox = Instance.new("Part")
+    hitbox.Name = name
+    hitbox.Size = size or Vector3.new(5, 5, 5)
+    hitbox.Transparency = 0.6
+    hitbox.Anchored = true
+    hitbox.CanCollide = false
+    hitbox.Material = Enum.Material.Neon
+    hitbox.Color = color or Color3.fromRGB(255, 0, 0)
+    hitbox.Parent = workspace
+    return hitbox
+end
+
 -- Cleanup old GUI
 if PlayerGui:FindFirstChild("KJ_GUI") then
     PlayerGui.KJ_GUI:Destroy()
@@ -205,15 +218,7 @@ addAbilityButton("Punch", function()
     local track = Humanoid:LoadAnimation(anim)
     track:Play()
 
-    local hitbox = Instance.new("Part")
-    hitbox.Name = "PunchHitbox"
-    hitbox.Size = Vector3.new(5, 5, 5)
-    hitbox.Transparency = 0.6
-    hitbox.Anchored = true
-    hitbox.CanCollide = false
-    hitbox.Material = Enum.Material.Neon
-    hitbox.Color = Color3.fromRGB(255, 0, 0)
-    hitbox.Parent = workspace
+    local hitbox = createVisibleHitbox("PunchHitbox", Vector3.new(5,5,5))
 
     local conn
     conn = RunService.RenderStepped:Connect(function()
@@ -249,58 +254,62 @@ addAbilityButton("Afterimage", function()
 end)
 
 -- KICK Ability
-addAbilityButton("Kick", function()
-    local candidates = {}
+addAbilityButton("Dropkick", function()
+    -- Find a target in front of you within range (optional)
+    local target
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
             local dist = (plr.Character.HumanoidRootPart.Position - HRP.Position).Magnitude
-            if dist <= 70 then
-                table.insert(candidates, plr)
+            if dist <= 15 then -- adjust range as needed
+                target = plr.Character.HumanoidRootPart
+                break
             end
         end
     end
-    if #candidates == 0 then
-        return
-    end
-    local target = candidates[math.random(1, #candidates)]
 
-    local billboard = Instance.new("BillboardGui")
-    billboard.Adornee = target.Character.HumanoidRootPart
-    billboard.Size = UDim2.new(0, 100, 0, 100)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = target.Character.HumanoidRootPart
+    -- If no target found, just use forward direction
+    local lookAtPos = target and target.Position or (HRP.Position + HRP.CFrame.LookVector * 10)
 
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 1, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    frame.BackgroundTransparency = 0.4
-    frame.BorderColor3 = Color3.new(1, 1, 1)
-    frame.BorderSizePixel = 3
-    frame.Parent = billboard
+    -- Tilt the HumanoidRootPart towards that position with 60 degree pitch
+    local rootCFrame = HRP.CFrame
+    local lookVector = (lookAtPos - rootCFrame.Position).Unit
 
-    task.wait(0.5)
+    -- Construct CFrame looking at target but tilted 60 degrees up
+    local tiltedCFrame = CFrame.new(rootCFrame.Position) *
+        CFrame.Angles(math.rad(-60), math.atan2(lookVector.X, lookVector.Z), 0)
 
-    local targetHRP = target.Character.HumanoidRootPart
-    local direction = (targetHRP.Position - HRP.Position).Unit
-    local angle = math.deg(math.acos(HRP.CFrame.LookVector:Dot(direction)))
-    if angle > 70 then
-        HRP.CFrame = HRP.CFrame:Lerp(CFrame.new(HRP.Position, targetHRP.Position), 0.5)
-    else
-        HRP.CFrame = CFrame.new(HRP.Position, targetHRP.Position)
-    end
+    HRP.CFrame = tiltedCFrame
 
-    HRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, -1.5)
+    -- Create visible hitbox
+    local hitbox = createVisibleHitbox("DropkickHitbox", Vector3.new(6, 6, 6), Color3.fromRGB(255, 100, 0))
 
-    local kickAnim = Instance.new("Animation")
-    kickAnim.AnimationId = "rbxassetid://1234567890" -- Replace with your kick animation ID
-    local kickAnim = Instance.new("Animation")
-    kickAnim.AnimationId = "rbxassetid://1234567890" -- Replace with your kick animation ID
-    local kickTrack = Humanoid:LoadAnimation(kickAnim)
-    kickTrack:Play()
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        if hitbox and HRP then
+            local basePos = HRP.Position
+            -- Position the hitbox slightly in front of the feet direction
+            local feetDirection = HRP.CFrame.LookVector
+            hitbox.CFrame = CFrame.new(basePos + feetDirection * 4, basePos + feetDirection * 5)
+        else
+            if conn then conn:Disconnect() end
+        end
+    end)
 
-    task.wait(1) -- Duration of kick animation
+    local hitAlready = {}
+    hitbox.Touched:Connect(function(part)
+        local targetChar = part:FindFirstAncestorOfClass("Model")
+        local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+        if targetPlayer and targetPlayer ~= LocalPlayer and not hitAlready[targetPlayer] then
+            hitAlready[targetPlayer] = true
+            ReplicatedStorage:WaitForChild("GeneralHit"):FireServer(targetChar:FindFirstChild("Head"))
+        end
+    end)
 
-    billboard:Destroy()
+    task.delay(2, function()
+        if hitbox then
+            hitbox:Destroy()
+        end
+    end)
 end)
 
 -- WALK SPEED DETECTOR & DISPLAY (top center)
