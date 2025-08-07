@@ -201,82 +201,88 @@ for dir, btn in pairs(dpadButtons) do
     end)
 end
 
--- PUNCH Ability
--- Define the ability toggle button function
-local function addAbilityToggle(name, defaultState, callback)
-    local btn = Instance.new("TextButton")
-    btn.Name = name .. "ToggleButton"
-    btn.Size = UDim2.new(1, -20, 0, 30)
-    btn.Position = UDim2.new(0, 10, 0, (#abilityMenu:GetChildren()-1) * 35)
-    btn.BackgroundColor3 = defaultState and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(255, 0, 0)
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.Arcade
-    btn.TextSize = 18
-    btn.Text = name .. (defaultState and " : ON" or " : OFF")
-    btn.Parent = abilityMenu
-    btn.BorderColor3 = Color3.fromRGB(255, 255, 255)
-    btn.BorderSizePixel = 1
+---[[
+	Punch Combo with Real Animations:
+	- Forward Punch
+	- Uppercut
+	- Downward Slam
+]]
 
-    local toggled = defaultState
-
-    btn.MouseButton1Click:Connect(function()
-        toggled = not toggled
-        btn.BackgroundColor3 = toggled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(255, 0, 0)
-        btn.Text = name .. (toggled and " : ON" or " : OFF")
-        callback(toggled)
-    end)
-
-    return btn
+local function playAnimation(animId)
+	local humanoid = Character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		local anim = Instance.new("Animation")
+		anim.AnimationId = animId
+		local track = humanoid:LoadAnimation(anim)
+		track:Play()
+		game.Debris:AddItem(anim, 5)
+		return track
+	end
 end
 
--- Variable to store the Hard Hitter state
-local hardHitterOn = false
+local Animations = {
+	Forward = "rbxassetid://109511274923523",
+	Uppercut = "rbxassetid://116559255414365",
+	DownSlam = "rbxassetid://14772482253",
+}
 
--- Add Hard Hitter toggle button to ability menu
-addAbilityToggle("Hard Hitter", false, function(state)
-    hardHitterOn = state
-    if state then
-        print("Hard Hitter toggled ON")
-    else
-        print("Hard Hitter toggled OFF")
-    end
-end)
+local function createHitbox(offset, size, color)
+	local part = Instance.new("Part")
+	part.Size = size
+	part.Anchored = true
+	part.CanCollide = false
+	part.Transparency = 0.5
+	part.Color = color
+	part.Material = Enum.Material.Neon
+	part.CFrame = HRP.CFrame * offset
+	part.Parent = workspace
+	game.Debris:AddItem(part, 1.5)
+	return part
+end
 
--- Modify your Punch ability to use the hardHitterOn variable
-addAbilityButton("Punch", function()
-    local hitbox = createVisibleHitbox("PunchHitbox", Vector3.new(4, 4, 4), Color3.fromRGB(255, 0, 0))
-    local conn
-    conn = RunService.RenderStepped:Connect(function()
-        if hitbox and HRP then
-            hitbox.CFrame = HRP.CFrame * CFrame.new(0, 0, -4)
-        else
-            if conn then conn:Disconnect() end
-        end
-    end)
+createButton("Punch Combo", function()
+	-- === Forward Punch ===
+	playAnimation(Animations.Forward)
+	local hitbox1 = createHitbox(CFrame.new(0, 0, -4), Vector3.new(4, 4, 4), Color3.fromRGB(0, 255, 0))
+	task.wait(0.25)
 
-    local hitAlready = {}
-    hitbox.Touched:Connect(function(part)
-        local targetChar = part:FindFirstAncestorOfClass("Model")
-        local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
-        if targetPlayer and targetPlayer ~= LocalPlayer and not hitAlready[targetPlayer] then
-            hitAlready[targetPlayer] = true
-            local head = targetChar:FindFirstChild("Head")
-            if head then
-                ReplicatedStorage:WaitForChild("GeneralHit"):FireServer(head)
-                if hardHitterOn then
-                    local bullRemote = ReplicatedStorage:FindFirstChild("BullHit")
-                    if bullRemote then
-                        bullRemote:FireServer()
-                    end
-                end
-            end
-        end
-    end)
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			if (player.Character.HumanoidRootPart.Position - hitbox1.Position).Magnitude <= 5 then
+				ReplicatedStorage.GeneralHit:FireServer(player.Character.HumanoidRootPart)
+			end
+		end
+	end
 
-    task.delay(2, function()
-        if conn then conn:Disconnect() end
-        if hitbox then hitbox:Destroy() end
-    end)
+	task.wait(0.4)
+
+	-- === Uppercut ===
+	playAnimation(Animations.Uppercut)
+	local hitbox2 = createHitbox(CFrame.new(0, 3, -2), Vector3.new(3, 6, 3), Color3.fromRGB(255, 200, 0))
+	task.wait(0.2)
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			if (player.Character.HumanoidRootPart.Position - hitbox2.Position).Magnitude <= 6 then
+				ReplicatedStorage.GeneralHit:FireServer(player.Character.HumanoidRootPart)
+			end
+		end
+	end
+
+	task.wait(0.4)
+
+	-- === Downward Slam ===
+	playAnimation(Animations.DownSlam)
+	local hitbox3 = createHitbox(CFrame.new(0, -3, -2), Vector3.new(5, 2, 5), Color3.fromRGB(200, 0, 255))
+	task.wait(0.3)
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			if (player.Character.HumanoidRootPart.Position - hitbox3.Position).Magnitude <= 6 then
+				ReplicatedStorage.GeneralHit:FireServer(player.Character.HumanoidRootPart)
+			end
+		end
+	end
 end)
 
 -- DROPKICK Ability
