@@ -1,0 +1,398 @@
+-- Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HRP = Character:WaitForChild("HumanoidRootPart")
+
+-- Cleanup old GUI
+if PlayerGui:FindFirstChild("KJ_GUI") then
+    PlayerGui.KJ_GUI:Destroy()
+end
+
+-- Main GUI
+local mainGui = Instance.new("ScreenGui")
+mainGui.Name = "KJ_GUI"
+mainGui.ResetOnSpawn = false
+mainGui.Parent = PlayerGui
+
+-- Techy Boot Sound
+local bootSound = Instance.new("Sound")
+bootSound.SoundId = "rbxassetid://5610058792"
+bootSound.Volume = 2
+bootSound.Parent = mainGui
+
+-- KJ Button (Bottom Left)
+local kjButton = Instance.new("TextButton")
+kjButton.Name = "KJButton"
+kjButton.Size = UDim2.new(0, 80, 0, 40)
+kjButton.Position = UDim2.new(0, 10, 1, -50)
+kjButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+kjButton.Text = "KJ"
+kjButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+kjButton.Font = Enum.Font.Arcade
+kjButton.TextSize = 20
+kjButton.Parent = mainGui
+kjButton.BorderColor3 = Color3.new(1,1,1)
+kjButton.BorderSizePixel = 1
+
+-- Ability Menu (hidden by default) (middle-right)
+local abilityMenu = Instance.new("Frame")
+abilityMenu.Name = "AbilityMenu"
+abilityMenu.Size = UDim2.new(0, 200, 0, 160)
+abilityMenu.Position = UDim2.new(1, -60, 0.5, -80)
+abilityMenu.AnchorPoint = Vector2.new(1, 0.5)
+abilityMenu.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+abilityMenu.BorderSizePixel = 2
+abilityMenu.BorderColor3 = Color3.fromRGB(255, 0, 0)
+abilityMenu.Visible = false
+abilityMenu.Parent = mainGui
+
+local function addAbilityButton(name, callback)
+    local btn = Instance.new("TextButton")
+    btn.Name = name .. "Button"
+    btn.Size = UDim2.new(1, -20, 0, 30)
+    btn.Position = UDim2.new(0, 10, 0, (#abilityMenu:GetChildren()-1) * 35)
+    btn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.Arcade
+    btn.TextSize = 18
+    btn.Text = name
+    btn.Parent = abilityMenu
+    btn.BorderColor3 = Color3.fromRGB(255, 255, 255)
+    btn.BorderSizePixel = 1
+    btn.MouseButton1Click:Connect(callback)
+end
+
+-- Toggle ability menu with animation and sound
+local menuOpen = false
+local function expandMenu()
+    abilityMenu.Visible = true
+    bootSound:Play()
+    TweenService:Create(
+        abilityMenu,
+        TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        { Size = UDim2.new(0, 200, 0, 160) }
+    ):Play()
+end
+local function collapseMenu()
+    TweenService:Create(
+        abilityMenu,
+        TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+        { Size = UDim2.new(0, 0, 0, 0) }
+    ):Play()
+    task.wait(0.5)
+    abilityMenu.Visible = false
+end
+kjButton.MouseButton1Click:Connect(function()
+    if menuOpen then
+        collapseMenu()
+    else
+        expandMenu()
+    end
+    menuOpen = not menuOpen
+end)
+
+-- Afterimage Toggle & D-Pad Setup (Left side)
+local afterToggle = Instance.new("TextButton")
+afterToggle.Name = "AfterimageToggle"
+afterToggle.Size = UDim2.new(0, 90, 0, 35)
+afterToggle.Position = UDim2.new(0, 100, 0.4, 0)
+afterToggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+afterToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+afterToggle.Text = "Afterimage"
+afterToggle.Font = Enum.Font.Arcade
+afterToggle.TextSize = 18
+afterToggle.Parent = mainGui
+afterToggle.BorderColor3 = Color3.new(1,1,1)
+afterToggle.BorderSizePixel = 1
+afterToggle.Visible = false
+
+local dpadButtons = {}
+local dpadPositions = {
+    Up = UDim2.new(0, 30, 0.4, -50),
+    Down = UDim2.new(0, 30, 0.4, 50),
+    Left = UDim2.new(0, -10, 0.4, 0),
+    Right = UDim2.new(0, 70, 0.4, 0),
+    Center = UDim2.new(0, 30, 0.4, 0),
+}
+
+local function createDpadBtn(name, pos)
+    local btn = Instance.new("TextButton")
+    btn.Name = name .. "Button"
+    btn.Size = UDim2.new(0, 40, 0, 40)
+    btn.Position = pos
+    btn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Text = name
+    btn.Font = Enum.Font.Arcade
+    btn.TextSize = 18
+    btn.BorderColor3 = Color3.fromRGB(255, 255, 255)
+    btn.BorderSizePixel = 2
+    btn.Visible = false
+    btn.Parent = mainGui
+    dpadButtons[name] = btn
+end
+
+for dir, pos in pairs(dpadPositions) do
+    createDpadBtn(dir, pos)
+end
+
+local afterimageOn = false
+afterToggle.MouseButton1Click:Connect(function()
+    afterimageOn = not afterimageOn
+    for _, btn in pairs(dpadButtons) do
+        btn.Visible = afterimageOn
+    end
+end)
+
+local function getDirectionalOffset(dir)
+    local lookVector = HRP.CFrame.LookVector
+    local rightVector = HRP.CFrame.RightVector
+    local offsetAmount = 10
+
+    if dir == "Up" then
+        return lookVector * -offsetAmount
+    elseif dir == "Down" then
+        return lookVector * offsetAmount
+    elseif dir == "Left" then
+        return -rightVector * offsetAmount
+    elseif dir == "Right" then
+        return rightVector * offsetAmount
+    else
+        return Vector3.new(0, 0, 0)
+    end
+end
+
+for dir, btn in pairs(dpadButtons) do
+    btn.MouseButton1Click:Connect(function()
+        if dir == "Center" then
+            local replica = workspace.Lobby:FindFirstChild("Replica")
+            local clickDetector = replica and replica:FindFirstChildOfClass("ClickDetector")
+            if clickDetector then
+                clickDetector:MouseClick(LocalPlayer)
+                task.wait(0.7)
+                ReplicatedStorage:WaitForChild("Duplicate"):FireServer()
+            end
+        else
+            local root = Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                root.CFrame = root.CFrame + getDirectionalOffset(dir)
+            end
+        end
+    end)
+end
+
+-- PUNCH Ability
+addAbilityButton("Punch", function()
+    local camLook = workspace.CurrentCamera.CFrame.LookVector
+    local selectedAnimId
+    if camLook.Y > 0.3 then
+        selectedAnimId = "rbxassetid://116559255414365" -- Uppercut
+    elseif camLook.Y < -0.3 then
+        selectedAnimId = "rbxassetid://14772482253" -- Down Punch
+    else
+        selectedAnimId = "rbxassetid://109511274923523" -- Forward Punch
+    end
+
+    local anim = Instance.new("Animation")
+    anim.AnimationId = selectedAnimId
+    local track = Humanoid:LoadAnimation(anim)
+    track:Play()
+
+    local hitbox = Instance.new("Part")
+    hitbox.Name = "PunchHitbox"
+    hitbox.Size = Vector3.new(5, 5, 5)
+    hitbox.Transparency = 0.6
+    hitbox.Anchored = true
+    hitbox.CanCollide = false
+    hitbox.Material = Enum.Material.Neon
+    hitbox.Color = Color3.fromRGB(255, 0, 0)
+    hitbox.Parent = workspace
+
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        if hitbox and HRP then
+            local basePos = HRP.Position
+            local lookVec = HRP.CFrame.LookVector
+            hitbox.CFrame = CFrame.new(basePos + lookVec * 4, basePos + lookVec * 5)
+        else
+            if conn then conn:Disconnect() end
+        end
+    end)
+
+    local hitAlready = {}
+    hitbox.Touched:Connect(function(part)
+        local targetChar = part:FindFirstAncestorOfClass("Model")
+        local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+        if targetPlayer and targetPlayer ~= LocalPlayer and not hitAlready[targetPlayer] then
+            hitAlready[targetPlayer] = true
+            ReplicatedStorage:WaitForChild("GeneralHit"):FireServer(targetChar:FindFirstChild("Head"))
+        end
+    end)
+
+    task.delay(2, function()
+        if hitbox then
+            hitbox:Destroy()
+        end
+    end)
+end)
+
+-- AFTERIMAGE Ability (enables Afterimage toggle button)
+addAbilityButton("Afterimage", function()
+    afterToggle.Visible = true
+end)
+
+-- KICK Ability
+addAbilityButton("Kick", function()
+    local candidates = {}
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (plr.Character.HumanoidRootPart.Position - HRP.Position).Magnitude
+            if dist <= 70 then
+                table.insert(candidates, plr)
+            end
+        end
+    end
+    if #candidates == 0 then
+        return
+    end
+    local target = candidates[math.random(1, #candidates)]
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Adornee = target.Character.HumanoidRootPart
+    billboard.Size = UDim2.new(0, 100, 0, 100)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = target.Character.HumanoidRootPart
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    frame.BackgroundTransparency = 0.4
+    frame.BorderColor3 = Color3.new(1, 1, 1)
+    frame.BorderSizePixel = 3
+    frame.Parent = billboard
+
+    task.wait(0.5)
+
+    local targetHRP = target.Character.HumanoidRootPart
+    local direction = (targetHRP.Position - HRP.Position).Unit
+    local angle = math.deg(math.acos(HRP.CFrame.LookVector:Dot(direction)))
+    if angle > 70 then
+        HRP.CFrame = HRP.CFrame:Lerp(CFrame.new(HRP.Position, targetHRP.Position), 0.5)
+    else
+        HRP.CFrame = CFrame.new(HRP.Position, targetHRP.Position)
+    end
+
+    HRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, -1.5)
+
+    local kickAnim = Instance.new("Animation")
+    kickAnim.AnimationId = "rbxassetid://1234567890" -- Replace with your kick animation ID
+    local kickAnim = Instance.new("Animation")
+    kickAnim.AnimationId = "rbxassetid://1234567890" -- Replace with your kick animation ID
+    local kickTrack = Humanoid:LoadAnimation(kickAnim)
+    kickTrack:Play()
+
+    task.wait(1) -- Duration of kick animation
+
+    billboard:Destroy()
+end)
+
+-- WALK SPEED DETECTOR & DISPLAY (top center)
+local walkSpeedLabel = Instance.new("TextLabel")
+walkSpeedLabel.Size = UDim2.new(0, 120, 0, 25)
+walkSpeedLabel.Position = UDim2.new(0.5, -60, 0, 5)
+walkSpeedLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+walkSpeedLabel.BorderColor3 = Color3.fromRGB(255, 0, 0)
+walkSpeedLabel.BorderSizePixel = 2
+walkSpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+walkSpeedLabel.Font = Enum.Font.Arcade
+walkSpeedLabel.TextSize = 18
+walkSpeedLabel.Text = "Walk Speed: " .. tostring(Humanoid.WalkSpeed)
+walkSpeedLabel.Parent = mainGui
+
+-- Update walk speed display
+Humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+    walkSpeedLabel.Text = "Walk Speed: " .. tostring(Humanoid.WalkSpeed)
+end)
+
+-- Sprint Mode Setup
+local sprintToggle = Instance.new("TextButton")
+sprintToggle.Name = "SprintToggle"
+sprintToggle.Size = UDim2.new(0, 100, 0, 30)
+sprintToggle.Position = UDim2.new(0.5, -50, 0, 35) -- just below walkspeed label
+sprintToggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+sprintToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+sprintToggle.Font = Enum.Font.Arcade
+sprintToggle.TextSize = 18
+sprintToggle.Text = "Sprint: OFF"
+sprintToggle.Parent = mainGui
+
+local sprinting = false
+local targetWalkSpeed = 20
+local defaultFOV = workspace.CurrentCamera.FieldOfView
+local sprintFOV = defaultFOV + 20
+
+-- Animations for walk and run
+local walkAnim = Instance.new("Animation")
+walkAnim.AnimationId = "rbxassetid://101931532422335" -- walk anim ID
+local walkTrack = Humanoid:LoadAnimation(walkAnim)
+walkTrack.Priority = Enum.AnimationPriority.Movement
+walkTrack:Play()
+
+local runAnim = Instance.new("Animation")
+runAnim.AnimationId = "rbxassetid://15775758181" -- run anim ID
+local runTrack = Humanoid:LoadAnimation(runAnim)
+runTrack.Priority = Enum.AnimationPriority.Movement
+runTrack:AdjustSpeed(3)
+runTrack:Stop()
+
+sprintToggle.MouseButton1Click:Connect(function()
+    sprinting = not sprinting
+    sprintToggle.Text = sprinting and "Sprint: ON" or "Sprint: OFF"
+end)
+
+RunService.RenderStepped:Connect(function(dt)
+    local isMoving = Humanoid.MoveDirection.Magnitude > 0
+
+    if sprinting and isMoving then
+        -- Increase walkspeed gradually to 70
+        targetWalkSpeed = math.clamp(targetWalkSpeed + dt * 50, 20, 70)
+        Humanoid.WalkSpeed = targetWalkSpeed
+        
+        -- Increase FOV gradually
+        workspace.CurrentCamera.FieldOfView = math.clamp(workspace.CurrentCamera.FieldOfView + dt * 60, defaultFOV, sprintFOV)
+        
+        -- Play run animation if speed >= 33
+        if Humanoid.WalkSpeed >= 33 then
+            if walkTrack.IsPlaying then walkTrack:Stop() end
+            if not runTrack.IsPlaying then runTrack:Play() end
+        else
+            if runTrack.IsPlaying then runTrack:Stop() end
+            if not walkTrack.IsPlaying then walkTrack:Play() end
+        end
+    elseif isMoving then
+        -- Not sprinting but moving, normal walk speed & anim
+        targetWalkSpeed = math.clamp(targetWalkSpeed - dt * 50, 20, 70)
+        Humanoid.WalkSpeed = targetWalkSpeed
+        
+        workspace.CurrentCamera.FieldOfView = math.clamp(workspace.CurrentCamera.FieldOfView - dt * 60, defaultFOV, sprintFOV)
+        
+        if runTrack.IsPlaying then runTrack:Stop() end
+        if not walkTrack.IsPlaying then walkTrack:Play() end
+    else
+        -- Not moving - idle, stop both animations and reset walkspeed and FOV
+        if runTrack.IsPlaying then runTrack:Stop() end
+        if walkTrack.IsPlaying then walkTrack:Stop() end
+        
+        targetWalkSpeed = 20
+        Humanoid.WalkSpeed = targetWalkSpeed
+        
+        workspace.CurrentCamera.FieldOfView = defaultFOV
+    end
+end)
