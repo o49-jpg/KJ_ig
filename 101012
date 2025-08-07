@@ -253,12 +253,34 @@ addAbilityButton("Afterimage", function()
     afterToggle.Visible = true
 end)
 
+-- Required Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HRP = Character:WaitForChild("HumanoidRootPart")
+
+-- Utility: Create a visible hitbox
+local function createVisibleHitbox(name, size, color)
+    local part = Instance.new("Part")
+    part.Name = name
+    part.Size = size
+    part.Anchored = true
+    part.CanCollide = false
+    part.Transparency = 0.5
+    part.BrickColor = BrickColor.new(color)
+    part.Material = Enum.Material.Neon
+    part.Parent = workspace
+    return part
+end
+
 -- KICK Ability
 addAbilityButton("Dropkick", function()
     local closestPlayer = nil
-    local closestDistance = 57 -- your desired range
+    local closestDistance = 57
 
-    -- Find closest player within range
+    -- Find closest player
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
             local dist = (plr.Character.HumanoidRootPart.Position - HRP.Position).Magnitude
@@ -270,21 +292,20 @@ addAbilityButton("Dropkick", function()
     end
 
     if not closestPlayer then return end
+
     local targetHRP = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not targetHRP then return end
 
-    -- Position in front of the target
+    -- Position in front of target
     local targetLook = targetHRP.CFrame.LookVector
     local teleportPos = targetHRP.Position - targetLook * 4
-
-    -- Tilt character 70 degrees forward (toward enemy)
     local newCFrame = CFrame.new(teleportPos, targetHRP.Position) * CFrame.Angles(math.rad(-70), 0, 0)
     HRP.CFrame = newCFrame
 
-    -- Create 8x8x8 visible foot hitbox
+    -- Create hitbox
     local hitbox = createVisibleHitbox("DropkickHitbox", Vector3.new(8, 8, 8), Color3.fromRGB(255, 100, 0))
 
-    -- Move hitbox to foot-facing direction (in front of character)
+    -- Reposition hitbox to be in front of the character's foot
     local conn
     conn = RunService.RenderStepped:Connect(function()
         if hitbox and HRP then
@@ -294,25 +315,6 @@ addAbilityButton("Dropkick", function()
             if conn then conn:Disconnect() end
         end
     end)
-
---// Hard Hitter
-addAbilityToggle("Hard Hitter", false, function(state)
-    if state then
-        -- Activate Hard Hitter
-        local bullClick = workspace:FindFirstChild("Lobby") and workspace.Lobby:FindFirstChild("Bull") and workspace.Lobby.Bull:FindFirstChild("ClickDetector")
-        if bullClick then
-            fireclickdetector(bullClick)
-        end
-
-        local bullRemote = ReplicatedStorage:FindFirstChild("BullHit")
-        if bullRemote then
-            bullRemote:FireServer()
-        end
-    else
-        -- Deactivate logic if needed
-        print("Hard Hitter toggled off")
-    end
-end)
 
     -- Hit detection
     local hitAlready = {}
@@ -333,6 +335,25 @@ end)
         if conn then conn:Disconnect() end
         if hitbox then hitbox:Destroy() end
     end)
+end)
+
+-- HARD HITTER TOGGLE
+addAbilityToggle("Hard Hitter", false, function(state)
+    if state then
+        -- Click the bull
+        local bullClick = workspace:FindFirstChild("Lobby") and workspace.Lobby:FindFirstChild("Bull") and workspace.Lobby.Bull:FindFirstChild("ClickDetector")
+        if bullClick then
+            fireclickdetector(bullClick)
+        end
+
+        -- Fire the bull hit remote
+        local bullRemote = ReplicatedStorage:FindFirstChild("BullHit")
+        if bullRemote then
+            bullRemote:FireServer()
+        end
+    else
+        print("Hard Hitter toggled off")
+    end
 end)
 
 -- WALK SPEED DETECTOR & DISPLAY (top center)
