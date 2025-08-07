@@ -295,6 +295,25 @@ addAbilityButton("Dropkick", function()
         end
     end)
 
+--// Hard Hitter
+addAbilityToggle("Hard Hitter", false, function(state)
+    if state then
+        -- Activate Hard Hitter
+        local bullClick = workspace:FindFirstChild("Lobby") and workspace.Lobby:FindFirstChild("Bull") and workspace.Lobby.Bull:FindFirstChild("ClickDetector")
+        if bullClick then
+            fireclickdetector(bullClick)
+        end
+
+        local bullRemote = ReplicatedStorage:FindFirstChild("BullHit")
+        if bullRemote then
+            bullRemote:FireServer()
+        end
+    else
+        -- Deactivate logic if needed
+        print("Hard Hitter toggled off")
+    end
+end)
+
     -- Hit detection
     local hitAlready = {}
     hitbox.Touched:Connect(function(part)
