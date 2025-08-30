@@ -240,7 +240,7 @@ local function createHitbox(offset, size, color)
 	return part
 end
 
-createButton("Punch Combo", function()
+addAbilityButton("Punch Combo", function()
 	-- === Forward Punch ===
 	playAnimation(Animations.Forward)
 	local hitbox1 = createHitbox(CFrame.new(0, 0, -4), Vector3.new(4, 4, 4), Color3.fromRGB(0, 255, 0))
