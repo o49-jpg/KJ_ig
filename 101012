@@ -10,17 +10,18 @@ local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
 local HRP = Character:WaitForChild("HumanoidRootPart")
 
+-- Utility: Create a visible hitbox
 local function createVisibleHitbox(name, size, color)
-    local hitbox = Instance.new("Part")
-    hitbox.Name = name
-    hitbox.Size = size or Vector3.new(5, 5, 5)
-    hitbox.Transparency = 0.6
-    hitbox.Anchored = true
-    hitbox.CanCollide = false
-    hitbox.Material = Enum.Material.Neon
-    hitbox.Color = color or Color3.fromRGB(255, 0, 0)
-    hitbox.Parent = workspace
-    return hitbox
+    local part = Instance.new("Part")
+    part.Name = name
+    part.Size = size or Vector3.new(5, 5, 5)
+    part.Anchored = true
+    part.CanCollide = false
+    part.Transparency = 0.5
+    part.Color = color or Color3.fromRGB(255, 0, 0)
+    part.Material = Enum.Material.Neon
+    part.Parent = workspace
+    return part
 end
 
 -- Cleanup old GUI
@@ -50,9 +51,9 @@ kjButton.Text = "KJ"
 kjButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 kjButton.Font = Enum.Font.Arcade
 kjButton.TextSize = 20
-kjButton.Parent = mainGui
-kjButton.BorderColor3 = Color3.new(1,1,1)
+kjButton.BorderColor3 = Color3.new(1, 1, 1)
 kjButton.BorderSizePixel = 1
+kjButton.Parent = mainGui
 
 -- Ability Menu (hidden by default) (middle-right)
 local abilityMenu = Instance.new("Frame")
@@ -70,15 +71,15 @@ local function addAbilityButton(name, callback)
     local btn = Instance.new("TextButton")
     btn.Name = name .. "Button"
     btn.Size = UDim2.new(1, -20, 0, 30)
-    btn.Position = UDim2.new(0, 10, 0, (#abilityMenu:GetChildren()-1) * 35)
+    btn.Position = UDim2.new(0, 10, 0, (#abilityMenu:GetChildren() - 1) * 35)
     btn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.Arcade
     btn.TextSize = 18
     btn.Text = name
-    btn.Parent = abilityMenu
     btn.BorderColor3 = Color3.fromRGB(255, 255, 255)
     btn.BorderSizePixel = 1
+    btn.Parent = abilityMenu
     btn.MouseButton1Click:Connect(callback)
 end
 
@@ -121,10 +122,10 @@ afterToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 afterToggle.Text = "Afterimage"
 afterToggle.Font = Enum.Font.Arcade
 afterToggle.TextSize = 18
-afterToggle.Parent = mainGui
-afterToggle.BorderColor3 = Color3.new(1,1,1)
+afterToggle.BorderColor3 = Color3.new(1, 1, 1)
 afterToggle.BorderSizePixel = 1
 afterToggle.Visible = false
+afterToggle.Parent = mainGui
 
 local dpadButtons = {}
 local dpadPositions = {
@@ -201,173 +202,141 @@ for dir, btn in pairs(dpadButtons) do
     end)
 end
 
----[[
-	Punch Combo with Real Animations:
-	- Forward Punch
-	- Uppercut
-	- Downward Slam
-]]
-
+-- Animations
 local function playAnimation(animId)
-	local humanoid = Character:FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		local anim = Instance.new("Animation")
-		anim.AnimationId = animId
-		local track = humanoid:LoadAnimation(anim)
-		track:Play()
-		game.Debris:AddItem(anim, 5)
-		return track
-	end
+    local humanoid = Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        local anim = Instance.new("Animation")
+        anim.AnimationId = animId
+        local track = humanoid:LoadAnimation(anim)
+        track:Play()
+        game.Debris:AddItem(anim, 5)
+        return track
+    end
 end
 
 local Animations = {
-	Forward = "rbxassetid://109511274923523",
-	Uppercut = "rbxassetid://116559255414365",
-	DownSlam = "rbxassetid://14772482253",
+    Forward = "rbxassetid://109511274923523",
+    Uppercut = "rbxassetid://116559255414365",
+    DownSlam = "rbxassetid://14772482253",
 }
 
 local function createHitbox(offset, size, color)
-	local part = Instance.new("Part")
-	part.Size = size
-	part.Anchored = true
-	part.CanCollide = false
-	part.Transparency = 0.5
-	part.Color = color
-	part.Material = Enum.Material.Neon
-	part.CFrame = HRP.CFrame * offset
-	part.Parent = workspace
-	game.Debris:AddItem(part, 1.5)
-	return part
-end
-
-addAbilityButton("Punch Combo", function()
-	-- === Forward Punch ===
-	playAnimation(Animations.Forward)
-	local hitbox1 = createHitbox(CFrame.new(0, 0, -4), Vector3.new(4, 4, 4), Color3.fromRGB(0, 255, 0))
-	task.wait(0.25)
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			if (player.Character.HumanoidRootPart.Position - hitbox1.Position).Magnitude <= 5 then
-				ReplicatedStorage.GeneralHit:FireServer(player.Character.HumanoidRootPart)
-			end
-		end
-	end
-
-	task.wait(0.4)
-
-	-- === Uppercut ===
-	playAnimation(Animations.Uppercut)
-	local hitbox2 = createHitbox(CFrame.new(0, 3, -2), Vector3.new(3, 6, 3), Color3.fromRGB(255, 200, 0))
-	task.wait(0.2)
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			if (player.Character.HumanoidRootPart.Position - hitbox2.Position).Magnitude <= 6 then
-				ReplicatedStorage.GeneralHit:FireServer(player.Character.HumanoidRootPart)
-			end
-		end
-	end
-
-	task.wait(0.4)
-
-	-- === Downward Slam ===
-	playAnimation(Animations.DownSlam)
-	local hitbox3 = createHitbox(CFrame.new(0, -3, -2), Vector3.new(5, 2, 5), Color3.fromRGB(200, 0, 255))
-	task.wait(0.3)
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			if (player.Character.HumanoidRootPart.Position - hitbox3.Position).Magnitude <= 6 then
-				ReplicatedStorage.GeneralHit:FireServer(player.Character.HumanoidRootPart)
-			end
-		end
-	end
-end)
-
--- DROPKICK Ability
-addAbilityButton("Dropkick", function()
-	local closestPlayer = nil
-	local closestDistance = 57
-
-	for _, plr in pairs(Players:GetPlayers()) do
-		if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-			local dist = (plr.Character.HumanoidRootPart.Position - HRP.Position).Magnitude
-			if dist <= closestDistance then
-				closestDistance = dist
-				closestPlayer = plr
-			end
-		end
-	end
-
-	if not closestPlayer then return end
-	local targetHRP = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
-	if not targetHRP then return end
-
-	local targetLook = targetHRP.CFrame.LookVector
-	local teleportPos = targetHRP.Position - targetLook * 4
-	local newCFrame = CFrame.new(teleportPos, targetHRP.Position) * CFrame.Angles(math.rad(-70), 0, 0)
-	HRP.CFrame = newCFrame
-
-	local hitbox = createVisibleHitbox("DropkickHitbox", Vector3.new(8, 8, 8), Color3.fromRGB(255, 100, 0))
-
-	local conn
-	conn = RunService.RenderStepped:Connect(function()
-		if hitbox and HRP then
-			local footDir = HRP.CFrame.LookVector
-			hitbox.CFrame = CFrame.new(HRP.Position + footDir * 4, HRP.Position + footDir * 5)
-		else
-			if conn then conn:Disconnect() end
-		end
-	end)
-
-	local hitAlready = {}
-	hitbox.Touched:Connect(function(part)
-		local targetChar = part:FindFirstAncestorOfClass("Model")
-		local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
-		if targetPlayer and targetPlayer ~= LocalPlayer and not hitAlready[targetPlayer] then
-			hitAlready[targetPlayer] = true
-			local head = targetChar:FindFirstChild("Head")
-			if head then
-				ReplicatedStorage:WaitForChild("GeneralHit"):FireServer(head)
-			end
-		end
-	end)
-
-	task.delay(2, function()
-		if conn then conn:Disconnect() end
-		if hitbox then hitbox:Destroy() end
-	end)
-end)
-
--- AFTERIMAGE Ability (enables Afterimage toggle button)
-addAbilityButton("Afterimage", function()
-    afterToggle.Visible = true
-end)
-
--- Required Services
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local HRP = Character:WaitForChild("HumanoidRootPart")
-
--- Utility: Create a visible hitbox
-local function createVisibleHitbox(name, size, color)
     local part = Instance.new("Part")
-    part.Name = name
     part.Size = size
     part.Anchored = true
     part.CanCollide = false
     part.Transparency = 0.5
-    part.BrickColor = BrickColor.new(color)
+    part.Color = color
     part.Material = Enum.Material.Neon
+    part.CFrame = HRP.CFrame * offset
     part.Parent = workspace
+    game.Debris:AddItem(part, 1.5)
     return part
 end
 
--- WALK SPEED DETECTOR & DISPLAY (top center)
+-- Abilities
+addAbilityButton("Punch Combo", function()
+    -- Forward Punch
+    playAnimation(Animations.Forward)
+    local hitbox1 = createHitbox(CFrame.new(0, 0, -4), Vector3.new(4, 4, 4), Color3.fromRGB(0, 255, 0))
+    task.wait(0.25)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if (player.Character.HumanoidRootPart.Position - hitbox1.Position).Magnitude <= 5 then
+                ReplicatedStorage.GeneralHit:FireServer(player.Character.HumanoidRootPart)
+            end
+        end
+    end
+
+    -- Uppercut
+    task.wait(0.4)
+    playAnimation(Animations.Uppercut)
+    local hitbox2 = createHitbox(CFrame.new(0, 3, -2), Vector3.new(3, 6, 3), Color3.fromRGB(255, 200, 0))
+    task.wait(0.2)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if (player.Character.HumanoidRootPart.Position - hitbox2.Position).Magnitude <= 6 then
+                ReplicatedStorage.GeneralHit:FireServer(player.Character.HumanoidRootPart)
+            end
+        end
+    end
+
+    -- Downward Slam
+    task.wait(0.4)
+    playAnimation(Animations.DownSlam)
+    local hitbox3 = createHitbox(CFrame.new(0, -3, -2), Vector3.new(5, 2, 5), Color3.fromRGB(200, 0, 255))
+    task.wait(0.3)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if (player.Character.HumanoidRootPart.Position - hitbox3.Position).Magnitude <= 6 then
+                ReplicatedStorage.GeneralHit:FireServer(player.Character.HumanoidRootPart)
+            end
+        end
+    end
+end)
+
+-- Dropkick Ability
+addAbilityButton("Dropkick", function()
+    local closestPlayer = nil
+    local closestDistance = 57
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (plr.Character.HumanoidRootPart.Position - HRP.Position).Magnitude
+            if dist <= closestDistance then
+                closestDistance = dist
+                closestPlayer = plr
+            end
+        end
+    end
+
+    if not closestPlayer then return end
+    local targetHRP = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
+
+    local targetLook = targetHRP.CFrame.LookVector
+    local teleportPos = targetHRP.Position - targetLook * 4
+    local newCFrame = CFrame.new(teleportPos, targetHRP.Position) * CFrame.Angles(math.rad(-70), 0, 0)
+    HRP.CFrame = newCFrame
+
+    local hitbox = createVisibleHitbox("DropkickHitbox", Vector3.new(8, 8, 8), Color3.fromRGB(255, 100, 0))
+
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        if hitbox and HRP then
+            local footDir = HRP.CFrame.LookVector
+            hitbox.CFrame = CFrame.new(HRP.Position + footDir * 4, HRP.Position + footDir * 5)
+        else
+            if conn then conn:Disconnect() end
+        end
+    end)
+
+    local hitAlready = {}
+    hitbox.Touched:Connect(function(part)
+        local targetChar = part:FindFirstAncestorOfClass("Model")
+        local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+        if targetPlayer and targetPlayer ~= LocalPlayer and not hitAlready[targetPlayer] then
+            hitAlready[targetPlayer] = true
+            local head = targetChar:FindFirstChild("Head")
+            if head then
+                ReplicatedStorage:WaitForChild("GeneralHit"):FireServer(head)
+            end
+        end
+    end)
+
+    task.delay(2, function()
+        if conn then conn:Disconnect() end
+        if hitbox then hitbox:Destroy() end
+    end)
+end)
+
+-- Afterimage Ability
+addAbilityButton("Afterimage", function()
+    afterToggle.Visible = true
+end)
+
+-- Walk Speed Display
 local walkSpeedLabel = Instance.new("TextLabel")
 walkSpeedLabel.Size = UDim2.new(0, 120, 0, 25)
 walkSpeedLabel.Position = UDim2.new(0.5, -60, 0, 5)
@@ -380,16 +349,15 @@ walkSpeedLabel.TextSize = 18
 walkSpeedLabel.Text = "Walk Speed: " .. tostring(Humanoid.WalkSpeed)
 walkSpeedLabel.Parent = mainGui
 
--- Update walk speed display
 Humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
     walkSpeedLabel.Text = "Walk Speed: " .. tostring(Humanoid.WalkSpeed)
 end)
 
--- Sprint Mode Setup
+-- Sprint Setup
 local sprintToggle = Instance.new("TextButton")
 sprintToggle.Name = "SprintToggle"
 sprintToggle.Size = UDim2.new(0, 100, 0, 30)
-sprintToggle.Position = UDim2.new(0.5, -50, 0, 35) -- just below walkspeed label
+sprintToggle.Position = UDim2.new(0.5, -50, 0, 35)
 sprintToggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 sprintToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 sprintToggle.Font = Enum.Font.Arcade
@@ -402,15 +370,14 @@ local targetWalkSpeed = 20
 local defaultFOV = workspace.CurrentCamera.FieldOfView
 local sprintFOV = defaultFOV + 20
 
--- Animations for walk and run
 local walkAnim = Instance.new("Animation")
-walkAnim.AnimationId = "rbxassetid://101931532422335" -- walk anim ID
+walkAnim.AnimationId = "rbxassetid://101931532422335"
 local walkTrack = Humanoid:LoadAnimation(walkAnim)
 walkTrack.Priority = Enum.AnimationPriority.Movement
 walkTrack:Play()
 
 local runAnim = Instance.new("Animation")
-runAnim.AnimationId = "rbxassetid://15775758181" -- run anim ID
+runAnim.AnimationId = "rbxassetid://15775758181"
 local runTrack = Humanoid:LoadAnimation(runAnim)
 runTrack.Priority = Enum.AnimationPriority.Movement
 runTrack:AdjustSpeed(3)
@@ -425,14 +392,10 @@ RunService.RenderStepped:Connect(function(dt)
     local isMoving = Humanoid.MoveDirection.Magnitude > 0
 
     if sprinting and isMoving then
-        -- Increase walkspeed gradually to 70
         targetWalkSpeed = math.clamp(targetWalkSpeed + dt * 50, 20, 70)
         Humanoid.WalkSpeed = targetWalkSpeed
-        
-        -- Increase FOV gradually
         workspace.CurrentCamera.FieldOfView = math.clamp(workspace.CurrentCamera.FieldOfView + dt * 60, defaultFOV, sprintFOV)
-        
-        -- Play run animation if speed >= 33
+
         if Humanoid.WalkSpeed >= 33 then
             if walkTrack.IsPlaying then walkTrack:Stop() end
             if not runTrack.IsPlaying then runTrack:Play() end
@@ -441,22 +404,17 @@ RunService.RenderStepped:Connect(function(dt)
             if not walkTrack.IsPlaying then walkTrack:Play() end
         end
     elseif isMoving then
-        -- Not sprinting but moving, normal walk speed & anim
         targetWalkSpeed = math.clamp(targetWalkSpeed - dt * 50, 20, 70)
         Humanoid.WalkSpeed = targetWalkSpeed
-        
         workspace.CurrentCamera.FieldOfView = math.clamp(workspace.CurrentCamera.FieldOfView - dt * 60, defaultFOV, sprintFOV)
-        
+
         if runTrack.IsPlaying then runTrack:Stop() end
         if not walkTrack.IsPlaying then walkTrack:Play() end
     else
-        -- Not moving - idle, stop both animations and reset walkspeed and FOV
         if runTrack.IsPlaying then runTrack:Stop() end
         if walkTrack.IsPlaying then walkTrack:Stop() end
-        
         targetWalkSpeed = 20
         Humanoid.WalkSpeed = targetWalkSpeed
-        
         workspace.CurrentCamera.FieldOfView = defaultFOV
     end
 end)
