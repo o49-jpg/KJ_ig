@@ -1,420 +1,406 @@
--- Services
+--//====================================================\\--
+--||             Animator6D Pro V4 (R6/R15)            ||--
+--||  Author: gObl00x + GPT-5                         ||--
+--||  Features: universal rig, local cache, safe play  ||--
+--||           + R15 Support Added                     ||--
+--\\====================================================//--
+
+if getgenv().Animator6DLoadedPro then return end
+getgenv().Animator6DLoadedPro = true
+
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local Humanoid = Character:WaitForChild("Humanoid")
-local HRP = Character:WaitForChild("HumanoidRootPart")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hum = character:WaitForChild("Humanoid")
 
--- Utility: Create a visible hitbox
-local function createVisibleHitbox(name, size, color)
-    local part = Instance.new("Part")
-    part.Name = name
-    part.Size = size or Vector3.new(5, 5, 5)
-    part.Anchored = true
-    part.CanCollide = false
-    part.Transparency = 0.5
-    part.Color = color or Color3.fromRGB(255, 0, 0)
-    part.Material = Enum.Material.Neon
-    part.Parent = workspace
-    return part
+-- ========== RIG TYPE DETECTION ==========
+local function getRigType(rig)
+	-- Check if R15 by looking for R15-specific parts
+	local hasR15Parts = false
+	local r15Parts = {"UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand", 
+					  "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperLeg", 
+					  "LeftLowerLeg", "LeftFoot", "RightUpperLeg", "RightLowerLeg", "RightFoot"}
+	
+	for _, partName in ipairs(r15Parts) do
+		if rig:FindFirstChild(partName) then
+			hasR15Parts = true
+			break
+		end
+	end
+	
+	return hasR15Parts and "R15" or "R6"
 end
 
--- Cleanup old GUI
-if PlayerGui:FindFirstChild("KJ_GUI") then
-    PlayerGui.KJ_GUI:Destroy()
-end
-
--- Main GUI
-local mainGui = Instance.new("ScreenGui")
-mainGui.Name = "KJ_GUI"
-mainGui.ResetOnSpawn = false
-mainGui.Parent = PlayerGui
-
--- Techy Boot Sound
-local bootSound = Instance.new("Sound")
-bootSound.SoundId = "rbxassetid://5610058792"
-bootSound.Volume = 2
-bootSound.Parent = mainGui
-
--- KJ Button (Bottom Left)
-local kjButton = Instance.new("TextButton")
-kjButton.Name = "KJButton"
-kjButton.Size = UDim2.new(0, 80, 0, 40)
-kjButton.Position = UDim2.new(0, 10, 1, -50)
-kjButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-kjButton.Text = "KJ"
-kjButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-kjButton.Font = Enum.Font.Arcade
-kjButton.TextSize = 20
-kjButton.BorderColor3 = Color3.new(1, 1, 1)
-kjButton.BorderSizePixel = 1
-kjButton.Parent = mainGui
-
--- Ability Menu (hidden by default) (middle-right)
-local abilityMenu = Instance.new("Frame")
-abilityMenu.Name = "AbilityMenu"
-abilityMenu.Size = UDim2.new(0, 200, 0, 160)
-abilityMenu.Position = UDim2.new(1, -60, 0.5, -80)
-abilityMenu.AnchorPoint = Vector2.new(1, 0.5)
-abilityMenu.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-abilityMenu.BorderSizePixel = 2
-abilityMenu.BorderColor3 = Color3.fromRGB(255, 0, 0)
-abilityMenu.Visible = false
-abilityMenu.Parent = mainGui
-
-local function addAbilityButton(name, callback)
-    local btn = Instance.new("TextButton")
-    btn.Name = name .. "Button"
-    btn.Size = UDim2.new(1, -20, 0, 30)
-    btn.Position = UDim2.new(0, 10, 0, (#abilityMenu:GetChildren() - 1) * 35)
-    btn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.Arcade
-    btn.TextSize = 18
-    btn.Text = name
-    btn.BorderColor3 = Color3.fromRGB(255, 255, 255)
-    btn.BorderSizePixel = 1
-    btn.Parent = abilityMenu
-    btn.MouseButton1Click:Connect(callback)
-end
-
--- Toggle ability menu with animation and sound
-local menuOpen = false
-local function expandMenu()
-    abilityMenu.Visible = true
-    bootSound:Play()
-    TweenService:Create(
-        abilityMenu,
-        TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-        { Size = UDim2.new(0, 200, 0, 160) }
-    ):Play()
-end
-local function collapseMenu()
-    TweenService:Create(
-        abilityMenu,
-        TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In),
-        { Size = UDim2.new(0, 0, 0, 0) }
-    ):Play()
-    task.wait(0.5)
-    abilityMenu.Visible = false
-end
-kjButton.MouseButton1Click:Connect(function()
-    if menuOpen then
-        collapseMenu()
-    else
-        expandMenu()
-    end
-    menuOpen = not menuOpen
-end)
-
--- Afterimage Toggle & D-Pad Setup (Left side)
-local afterToggle = Instance.new("TextButton")
-afterToggle.Name = "AfterimageToggle"
-afterToggle.Size = UDim2.new(0, 90, 0, 35)
-afterToggle.Position = UDim2.new(0, 100, 0.4, 0)
-afterToggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-afterToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-afterToggle.Text = "Afterimage"
-afterToggle.Font = Enum.Font.Arcade
-afterToggle.TextSize = 18
-afterToggle.BorderColor3 = Color3.new(1, 1, 1)
-afterToggle.BorderSizePixel = 1
-afterToggle.Visible = false
-afterToggle.Parent = mainGui
-
-local dpadButtons = {}
-local dpadPositions = {
-    Up = UDim2.new(0, 30, 0.4, -50),
-    Down = UDim2.new(0, 30, 0.4, 50),
-    Left = UDim2.new(0, -10, 0.4, 0),
-    Right = UDim2.new(0, 70, 0.4, 0),
-    Center = UDim2.new(0, 30, 0.4, 0),
+-- ========== MOTOR MAPS FOR BOTH RIG TYPES ==========
+local R6Map = {
+	["Head"] = "Neck",
+	["Torso"] = "RootJoint",
+	["Right Arm"] = "Right Shoulder",
+	["Left Arm"] = "Left Shoulder",
+	["Right Leg"] = "Right Hip",
+	["Left Leg"] = "Left Hip"
 }
 
-local function createDpadBtn(name, pos)
-    local btn = Instance.new("TextButton")
-    btn.Name = name .. "Button"
-    btn.Size = UDim2.new(0, 40, 0, 40)
-    btn.Position = pos
-    btn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Text = name
-    btn.Font = Enum.Font.Arcade
-    btn.TextSize = 18
-    btn.BorderColor3 = Color3.fromRGB(255, 255, 255)
-    btn.BorderSizePixel = 2
-    btn.Visible = false
-    btn.Parent = mainGui
-    dpadButtons[name] = btn
-end
-
-for dir, pos in pairs(dpadPositions) do
-    createDpadBtn(dir, pos)
-end
-
-local afterimageOn = false
-afterToggle.MouseButton1Click:Connect(function()
-    afterimageOn = not afterimageOn
-    for _, btn in pairs(dpadButtons) do
-        btn.Visible = afterimageOn
-    end
-end)
-
-local function getDirectionalOffset(dir)
-    local lookVector = HRP.CFrame.LookVector
-    local rightVector = HRP.CFrame.RightVector
-    local offsetAmount = 10
-
-    if dir == "Up" then
-        return lookVector * -offsetAmount
-    elseif dir == "Down" then
-        return lookVector * offsetAmount
-    elseif dir == "Left" then
-        return -rightVector * offsetAmount
-    elseif dir == "Right" then
-        return rightVector * offsetAmount
-    else
-        return Vector3.new(0, 0, 0)
-    end
-end
-
-for dir, btn in pairs(dpadButtons) do
-    btn.MouseButton1Click:Connect(function()
-        if dir == "Center" then
-            local replica = workspace.Lobby:FindFirstChild("Replica")
-            local clickDetector = replica and replica:FindFirstChildOfClass("ClickDetector")
-            if clickDetector then
-                clickDetector:MouseClick(LocalPlayer)
-                task.wait(0.7)
-                ReplicatedStorage:WaitForChild("Duplicate"):FireServer()
-            end
-        else
-            local root = Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                root.CFrame = root.CFrame + getDirectionalOffset(dir)
-            end
-        end
-    end)
-end
-
--- Animations
-local function playAnimation(animId)
-    local humanoid = Character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        local anim = Instance.new("Animation")
-        anim.AnimationId = animId
-        local track = humanoid:LoadAnimation(anim)
-        track:Play()
-        game.Debris:AddItem(anim, 5)
-        return track
-    end
-end
-
-local Animations = {
-    Forward = "rbxassetid://109511274923523",
-    Uppercut = "rbxassetid://116559255414365",
-    DownSlam = "rbxassetid://14772482253",
+local R15Map = {
+	-- Core body parts
+	["Head"] = "Neck",
+	["UpperTorso"] = "Waist",
+	["LowerTorso"] = "Root",
+	
+	-- Right arm chain
+	["RightUpperArm"] = "RightShoulder",
+	["RightLowerArm"] = "RightElbow",
+	["RightHand"] = "RightWrist",
+	
+	-- Left arm chain
+	["LeftUpperArm"] = "LeftShoulder",
+	["LeftLowerArm"] = "LeftElbow",
+	["LeftHand"] = "LeftWrist",
+	
+	-- Right leg chain
+	["RightUpperLeg"] = "RightHip",
+	["RightLowerLeg"] = "RightKnee",
+	["RightFoot"] = "RightAnkle",
+	
+	-- Left leg chain
+	["LeftUpperLeg"] = "LeftHip",
+	["LeftLowerLeg"] = "LeftKnee",
+	["LeftFoot"] = "LeftAnkle"
 }
 
-local function createHitbox(offset, size, color)
-    local part = Instance.new("Part")
-    part.Size = size
-    part.Anchored = true
-    part.CanCollide = false
-    part.Transparency = 0.5
-    part.Color = color
-    part.Material = Enum.Material.Neon
-    part.CFrame = HRP.CFrame * offset
-    part.Parent = workspace
-    game.Debris:AddItem(part, 1.5)
-    return part
+-- Reverse map for finding motors by their names
+local R15ReverseMap = {}
+for poseName, motorName in pairs(R15Map) do
+	R15ReverseMap[motorName] = poseName
 end
 
--- Abilities
-addAbilityButton("Punch Combo", function()
-    -- Forward Punch
-    playAnimation(Animations.Forward)
-    local hitbox1 = createHitbox(CFrame.new(0, 0, -4), Vector3.new(4, 4, 4), Color3.fromRGB(0, 255, 0))
-    task.wait(0.25)
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            if (player.Character.HumanoidRootPart.Position - hitbox1.Position).Magnitude <= 5 then
-                ReplicatedStorage.GeneralHit:FireServer(player.Character.HumanoidRootPart)
-            end
-        end
-    end
-
-    -- Uppercut
-    task.wait(0.4)
-    playAnimation(Animations.Uppercut)
-    local hitbox2 = createHitbox(CFrame.new(0, 3, -2), Vector3.new(3, 6, 3), Color3.fromRGB(255, 200, 0))
-    task.wait(0.2)
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            if (player.Character.HumanoidRootPart.Position - hitbox2.Position).Magnitude <= 6 then
-                ReplicatedStorage.GeneralHit:FireServer(player.Character.HumanoidRootPart)
-            end
-        end
-    end
-
-    -- Downward Slam
-    task.wait(0.4)
-    playAnimation(Animations.DownSlam)
-    local hitbox3 = createHitbox(CFrame.new(0, -3, -2), Vector3.new(5, 2, 5), Color3.fromRGB(200, 0, 255))
-    task.wait(0.3)
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            if (player.Character.HumanoidRootPart.Position - hitbox3.Position).Magnitude <= 6 then
-                ReplicatedStorage.GeneralHit:FireServer(player.Character.HumanoidRootPart)
-            end
-        end
-    end
+-- ========== LOCAL CACHE / 403 EVASION ==========
+local LocalAssetCache = {}
+local fullModel = nil
+pcall(function()
+	fullModel = game:GetObjects("rbxassetid://107495486817639")[1]
+	if fullModel then
+		fullModel.Parent = workspace
+	end
 end)
 
--- Dropkick Ability
-addAbilityButton("Dropkick", function()
-    local closestPlayer = nil
-    local closestDistance = 57
+local function LoadLocalAsset(id)
+	id = tostring(id):gsub("^rbxassetid://", "")
+	if LocalAssetCache[id] then
+		return LocalAssetCache[id]
+	end
 
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (plr.Character.HumanoidRootPart.Position - HRP.Position).Magnitude
-            if dist <= closestDistance then
-                closestDistance = dist
-                closestPlayer = plr
-            end
-        end
-    end
+	local found = fullModel and fullModel:FindFirstChild(id, true)
+	if found then
+		LocalAssetCache[id] = found
+		warn("[Animator6D] ✅ Loaded from local cache:", id)
+		return found
+	end
 
-    if not closestPlayer then return end
-    local targetHRP = closestPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not targetHRP then return end
+	local ok, obj = pcall(function()
+		return game:GetObjects("rbxassetid://" .. id)[1]
+	end)
+	if ok and obj then
+		LocalAssetCache[id] = obj
+		warn("[Animator6D] ✅ Loaded via GetObjects👍👍:", id)
+		return obj
+	end
 
-    local targetLook = targetHRP.CFrame.LookVector
-    local teleportPos = targetHRP.Position - targetLook * 4
-    local newCFrame = CFrame.new(teleportPos, targetHRP.Position) * CFrame.Angles(math.rad(-70), 0, 0)
-    HRP.CFrame = newCFrame
+	warn("[Animator6D] ts is bad, failed to load animation:", id)
+	return nil
+end
+-- ===============================================
 
-    local hitbox = createVisibleHitbox("DropkickHitbox", Vector3.new(8, 8, 8), Color3.fromRGB(255, 100, 0))
+-- ========== KEYFRAME PARSER ==========
+local function ConvertToTable(kfs)
+	if not (kfs and typeof(kfs) == "Instance" and kfs:IsA("KeyframeSequence")) then
+		if typeof(kfs) == "Instance" then
+			for _, obj in ipairs(kfs:GetDescendants()) do
+				if obj:IsA("KeyframeSequence") then
+					kfs = obj
+					break
+				end
+			end
+		end
+	end
 
-    local conn
-    conn = RunService.RenderStepped:Connect(function()
-        if hitbox and HRP then
-            local footDir = HRP.CFrame.LookVector
-            hitbox.CFrame = CFrame.new(HRP.Position + footDir * 4, HRP.Position + footDir * 5)
-        else
-            if conn then conn:Disconnect() end
-        end
-    end)
+	assert(kfs and typeof(kfs) == "Instance" and kfs:IsA("KeyframeSequence"), "Expected KeyframeSequence")
 
-    local hitAlready = {}
-    hitbox.Touched:Connect(function(part)
-        local targetChar = part:FindFirstAncestorOfClass("Model")
-        local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
-        if targetPlayer and targetPlayer ~= LocalPlayer and not hitAlready[targetPlayer] then
-            hitAlready[targetPlayer] = true
-            local head = targetChar:FindFirstChild("Head")
-            if head then
-                ReplicatedStorage:WaitForChild("GeneralHit"):FireServer(head)
-            end
-        end
-    end)
+	local seq = {}
+	for _, frame in ipairs(kfs:GetKeyframes()) do
+		local entry = { Time = frame.Time, Data = {} }
+		for _, pose in ipairs(frame:GetDescendants()) do
+			if pose:IsA("Pose") and pose.Weight > 0 then
+				entry.Data[pose.Name] = { CFrame = pose.CFrame }
+			end
+		end
+		table.insert(seq, entry)
+	end
+	table.sort(seq, function(a, b) return a.Time < b.Time end)
+	return seq, kfs.Loop
+end
 
-    task.delay(2, function()
-        if conn then conn:Disconnect() end
-        if hitbox then hitbox:Destroy() end
-    end)
+-- ========== MOTOR MAP ==========
+local function BuildMotorMap(rig)
+	local map, lower = {}, {}
+	local rigType = getRigType(rig)
+	
+	for _, m in ipairs(rig:GetDescendants()) do
+		if m:IsA("Motor6D") then
+			map[m.Name] = m
+			lower[string.lower(m.Name)] = m
+		end
+	end
+	
+	return map, lower, rigType
+end
+
+-- ========== FIND MOTOR BY POSE NAME (RIG AWARE) ==========
+local function FindMotor(poseName, map, lower, rigType)
+	if rigType == "R6" then
+		local match = R6Map[poseName] or poseName
+		return map[match] or lower[string.lower(match)]
+	else -- R15
+		-- Try direct motor name match first
+		if map[poseName] then
+			return map[poseName]
+		end
+		
+		-- Try R15 map
+		local motorName = R15Map[poseName]
+		if motorName and map[motorName] then
+			return map[motorName]
+		end
+		
+		-- Try lowercase
+		return lower[string.lower(poseName)]
+	end
+end
+
+-- ========== CONVERT R6 ANIMATIONS TO R15 ==========
+local function convertPoseForR15(poseName, poseCFrame, rigType)
+	if rigType == "R15" then
+		-- Handle special conversions if needed
+		-- For example, if an R6 animation targets "Torso", we might need to split between UpperTorso/LowerTorso
+		if poseName == "Torso" then
+			-- Return both UpperTorso and LowerTorso with appropriate CFrames
+			return {
+				["UpperTorso"] = { CFrame = poseCFrame },
+				["LowerTorso"] = { CFrame = poseCFrame }
+			}
+		elseif poseName == "Right Arm" then
+			return {
+				["RightUpperArm"] = { CFrame = poseCFrame },
+				["RightLowerArm"] = { CFrame = poseCFrame },
+				["RightHand"] = { CFrame = poseCFrame }
+			}
+		elseif poseName == "Left Arm" then
+			return {
+				["LeftUpperArm"] = { CFrame = poseCFrame },
+				["LeftLowerArm"] = { CFrame = poseCFrame },
+				["LeftHand"] = { CFrame = poseCFrame }
+			}
+		elseif poseName == "Right Leg" then
+			return {
+				["RightUpperLeg"] = { CFrame = poseCFrame },
+				["RightLowerLeg"] = { CFrame = poseCFrame },
+				["RightFoot"] = { CFrame = poseCFrame }
+			}
+		elseif poseName == "Left Leg" then
+			return {
+				["LeftUpperLeg"] = { CFrame = poseCFrame },
+				["LeftLowerLeg"] = { CFrame = poseCFrame },
+				["LeftFoot"] = { CFrame = poseCFrame }
+			}
+		end
+	end
+	-- Return original for R6 or unmapped R15 poses
+	return { [poseName] = { CFrame = poseCFrame } }
+end
+
+-- ========== ANIM PLAYER ==========
+local AnimPlayer = {}
+AnimPlayer.__index = AnimPlayer
+
+function AnimPlayer.new(rig, kfs)
+	local self = setmetatable({}, AnimPlayer)
+	self.rig = rig
+	self.seq, self.looped = ConvertToTable(kfs)
+	self.map, self.lower, self.rigType = BuildMotorMap(rig)
+	self.time, self.playing = 0, false
+	self.length = self.seq[#self.seq].Time
+	self.speed = 1
+	self.savedC0 = {}
+	
+	-- Save original C0 for all motors
+	for _, m in pairs(self.map) do
+		self.savedC0[m] = m.C0
+	end
+	
+	warn("[Animator6D] 🎯 Rig type detected:", self.rigType)
+	return self
+end
+
+function AnimPlayer:Play(speed, loop)
+	if self.playing then return end
+	self.playing, self.speed = true, speed or 1
+	self.looped = (loop == nil) and true or loop
+
+	self.conn = RunService.Heartbeat:Connect(function(dt)
+		if not self.playing then return end
+		self.time += dt * self.speed
+
+		if self.time > self.length then
+			if self.looped then
+				self.time -= self.length
+			else
+				self:Stop(true)
+				return
+			end
+		end
+
+		-- Find current keyframe
+		local prev = self.seq[1]
+		for i = 1, #self.seq do
+			if self.seq[i].Time <= self.time then
+				prev = self.seq[i]
+			else
+				break
+			end
+		end
+
+		-- Apply poses
+		for joint, data in pairs(prev.Data) do
+			if self.rigType == "R15" then
+				-- For R15, we might need to convert the pose
+				local convertedPoses = convertPoseForR15(joint, data.CFrame, self.rigType)
+				for convertedJoint, convertedData in pairs(convertedPoses) {
+					local motor = FindMotor(convertedJoint, self.map, self.lower, self.rigType)
+					if motor then
+						pcall(function()
+							motor.C0 = self.savedC0[motor] * convertedData.CFrame
+						end)
+					end
+				}
+			else
+				-- R6 - direct mapping
+				local motor = FindMotor(joint, self.map, self.lower, self.rigType)
+				if motor then
+					pcall(function()
+						motor.C0 = self.savedC0[motor] * data.CFrame
+					end)
+				end
+			end
+		end
+	end)
+end
+
+function AnimPlayer:Stop(restore)
+	self.playing = false
+	if self.conn then self.conn:Disconnect() self.conn = nil end
+	if restore then
+		for motor, origC0 in pairs(self.savedC0) do
+			pcall(function() motor.C0 = origC0 end)
+		end
+	else
+		for _, m in pairs(self.map) do
+			pcall(function() m.Transform = CFrame.new() end)
+		end
+	end
+end
+
+-- ========== DISABLE DEFAULT ANIMS ==========
+local function disableDefaultAnimations(char)
+	if not hum then return end
+	for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+		track:Stop(0)
+	end
+	local animScript = char:FindFirstChild("Animate")
+	if animScript then animScript.Disabled = true end
+	local animator = hum:FindFirstChildOfClass("Animator")
+	if animator then animator:Destroy() end
+end
+
+-- ========== GLOBAL INTERFACE ==========
+getgenv().Animator6D = function(idOrInstance, speed, looped)
+	local kfs
+	if typeof(idOrInstance) == "Instance" then
+		kfs = idOrInstance:IsA("KeyframeSequence") and idOrInstance or idOrInstance:FindFirstChildOfClass("KeyframeSequence")
+	else
+		local asset = LoadLocalAsset(idOrInstance)
+		if asset then
+			kfs = asset:FindFirstChildOfClass("KeyframeSequence") or asset
+		end
+	end
+
+	if not kfs then
+		warn("[Animator6D] yo sorry could not load animation:", idOrInstance)
+		return
+	end
+
+	disableDefaultAnimations(character)
+
+	if getgenv().currentAnimator6D then
+		pcall(function()
+			getgenv().currentAnimator6D:Stop(true)
+		end)
+	end
+
+	local anim = AnimPlayer.new(character, kfs)
+	getgenv().currentAnimator6D = anim
+	anim:Play(speed or 1, looped)
+	
+	-- Return rig type info
+	return anim, anim.rigType
+end
+
+getgenv().Animator6DStop = function()
+	if getgenv().currentAnimator6D then
+		pcall(function() getgenv().currentAnimator6D:Stop(true) end)
+		getgenv().currentAnimator6D = nil
+	end
+end
+
+-- ========== UTILITY FUNCTIONS ==========
+getgenv().Animator6DGetRigType = function()
+	if getgenv().currentAnimator6D then
+		return getgenv().currentAnimator6D.rigType
+	end
+	local rigType = getRigType(character)
+	return rigType
+end
+
+-- ========== NOTIFY ==========
+local rigType = getRigType(character)
+warn("[Animator6D Pro V4] ya.. Allah hotbar | Detected: " .. rigType)
+pcall(function()
+	game:GetService("StarterGui"):SetCore("SendNotification", {
+		Title = "Animator6D Pro V4",
+		Text = "Loaded with " .. rigType .. " Support!",
+		Duration = 5
+	})
 end)
 
--- Afterimage Ability
-addAbilityButton("Afterimage", function()
-    afterToggle.Visible = true
-end)
-
--- Walk Speed Display
-local walkSpeedLabel = Instance.new("TextLabel")
-walkSpeedLabel.Size = UDim2.new(0, 120, 0, 25)
-walkSpeedLabel.Position = UDim2.new(0.5, -60, 0, 5)
-walkSpeedLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-walkSpeedLabel.BorderColor3 = Color3.fromRGB(255, 0, 0)
-walkSpeedLabel.BorderSizePixel = 2
-walkSpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-walkSpeedLabel.Font = Enum.Font.Arcade
-walkSpeedLabel.TextSize = 18
-walkSpeedLabel.Text = "Walk Speed: " .. tostring(Humanoid.WalkSpeed)
-walkSpeedLabel.Parent = mainGui
-
-Humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-    walkSpeedLabel.Text = "Walk Speed: " .. tostring(Humanoid.WalkSpeed)
-end)
-
--- Sprint Setup
-local sprintToggle = Instance.new("TextButton")
-sprintToggle.Name = "SprintToggle"
-sprintToggle.Size = UDim2.new(0, 100, 0, 30)
-sprintToggle.Position = UDim2.new(0.5, -50, 0, 35)
-sprintToggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-sprintToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-sprintToggle.Font = Enum.Font.Arcade
-sprintToggle.TextSize = 18
-sprintToggle.Text = "Sprint: OFF"
-sprintToggle.Parent = mainGui
-
-local sprinting = false
-local targetWalkSpeed = 20
-local defaultFOV = workspace.CurrentCamera.FieldOfView
-local sprintFOV = defaultFOV + 20
-
-local walkAnim = Instance.new("Animation")
-walkAnim.AnimationId = "rbxassetid://101931532422335"
-local walkTrack = Humanoid:LoadAnimation(walkAnim)
-walkTrack.Priority = Enum.AnimationPriority.Movement
-walkTrack:Play()
-
-local runAnim = Instance.new("Animation")
-runAnim.AnimationId = "rbxassetid://15775758181"
-local runTrack = Humanoid:LoadAnimation(runAnim)
-runTrack.Priority = Enum.AnimationPriority.Movement
-runTrack:AdjustSpeed(3)
-runTrack:Stop()
-
-sprintToggle.MouseButton1Click:Connect(function()
-    sprinting = not sprinting
-    sprintToggle.Text = sprinting and "Sprint: ON" or "Sprint: OFF"
-end)
-
-RunService.RenderStepped:Connect(function(dt)
-    local isMoving = Humanoid.MoveDirection.Magnitude > 0
-
-    if sprinting and isMoving then
-        targetWalkSpeed = math.clamp(targetWalkSpeed + dt * 50, 20, 70)
-        Humanoid.WalkSpeed = targetWalkSpeed
-        workspace.CurrentCamera.FieldOfView = math.clamp(workspace.CurrentCamera.FieldOfView + dt * 60, defaultFOV, sprintFOV)
-
-        if Humanoid.WalkSpeed >= 33 then
-            if walkTrack.IsPlaying then walkTrack:Stop() end
-            if not runTrack.IsPlaying then runTrack:Play() end
-        else
-            if runTrack.IsPlaying then runTrack:Stop() end
-            if not walkTrack.IsPlaying then walkTrack:Play() end
-        end
-    elseif isMoving then
-        targetWalkSpeed = math.clamp(targetWalkSpeed - dt * 50, 20, 70)
-        Humanoid.WalkSpeed = targetWalkSpeed
-        workspace.CurrentCamera.FieldOfView = math.clamp(workspace.CurrentCamera.FieldOfView - dt * 60, defaultFOV, sprintFOV)
-
-        if runTrack.IsPlaying then runTrack:Stop() end
-        if not walkTrack.IsPlaying then walkTrack:Play() end
-    else
-        if runTrack.IsPlaying then runTrack:Stop() end
-        if walkTrack.IsPlaying then walkTrack:Stop() end
-        targetWalkSpeed = 20
-        Humanoid.WalkSpeed = targetWalkSpeed
-        workspace.CurrentCamera.FieldOfView = defaultFOV
-    end
-end)
+--
+--[[
+(pls, If ur down here, read these instructions)
+Instructions:
+--
+If u want to play the anim outside ts loadstring, then:
+getgenv().Animator6D(1234567890, 1, true) -- idOrInstance, Speed, Looped? --
+--
+If u will be using an instance and not an ID, then:
+local animInstance = game:GetObjects("rbxassetid://ID")[1]..Here the KeyframeSequence Path -- replace ID with the ID --
+getgenv().Animator6D(animInstance, 1, true) -- or false if u want the anim to have a loop
+--
+If u want to stop the anim outside ts loadstring, then:
+getgenv().Animator6DStop()
+--
+NEW R15 FEATURES:
+getgenv().Animator6DGetRigType() -- Returns "R6" or "R15" for current character
+--
+The script now automatically detects R6 vs R15 and handles both!
+R6 animations will be automatically converted to work on R15 rigs.
+--]]
