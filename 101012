@@ -382,25 +382,3 @@ pcall(function()
 		Duration = 5
 	})
 end)
-
---
---[[
-(pls, If ur down here, read these instructions)
-Instructions:
---
-If u want to play the anim outside ts loadstring, then:
-getgenv().Animator6D(1234567890, 1, true) -- idOrInstance, Speed, Looped? --
---
-If u will be using an instance and not an ID, then:
-local animInstance = game:GetObjects("rbxassetid://ID")[1]..Here the KeyframeSequence Path -- replace ID with the ID --
-getgenv().Animator6D(animInstance, 1, true) -- or false if u want the anim to have a loop
---
-If u want to stop the anim outside ts loadstring, then:
-getgenv().Animator6DStop()
---
-NEW R15 FEATURES:
-getgenv().Animator6DGetRigType() -- Returns "R6" or "R15" for current character
---
-The script now automatically detects R6 vs R15 and handles both!
-R6 animations will be automatically converted to work on R15 rigs.
---]]
